@@ -48,15 +48,18 @@ def build_base_table(raw_df: pd.DataFrame, config: AnalysisConfig) -> pd.DataFra
     parts: list[pd.DataFrame] = []
     for _, group in df.groupby("stream_id", observed=True, sort=False):
         g = group.sort_values("recv_ts").reset_index(drop=True)
+        time_scale_to_seconds = _infer_time_scale_to_seconds(g["send_ts"], g["recv_ts"])
+        send_ts_s = g["send_ts"] * time_scale_to_seconds
+        recv_ts_s = g["recv_ts"] * time_scale_to_seconds
         c = compute_counter_metrics(
             g["counter"],
             modulus=config.counter_modulus or 2**config.counter_bits,
             wrap=config.counter_wrap,
         )
         g = pd.concat([g, c], axis=1)
-        g["latency_s"] = g["recv_ts"] - g["send_ts"]
-        g["send_dt_s"] = g["send_ts"].diff()
-        g["recv_dt_s"] = g["recv_ts"].diff()
+        g["latency_s"] = recv_ts_s - send_ts_s
+        g["send_dt_s"] = send_ts_s.diff()
+        g["recv_dt_s"] = recv_ts_s.diff()
         g["send_freq_hz"] = 1.0 / g["send_dt_s"].replace(0, np.nan)
         g["recv_freq_hz"] = 1.0 / g["recv_dt_s"].replace(0, np.nan)
         expected = config.expected_period_s
@@ -82,3 +85,14 @@ def build_base_table(raw_df: pd.DataFrame, config: AnalysisConfig) -> pd.DataFra
         if col not in base.columns:
             base[col] = np.nan
     return base[CANONICAL_ORDER]
+
+
+def _infer_time_scale_to_seconds(send_ts: pd.Series, recv_ts: pd.Series) -> float:
+    combined = pd.concat([send_ts, recv_ts], ignore_index=True).dropna()
+    if combined.empty:
+        return 1.0
+
+    max_abs_value = combined.abs().max()
+    if max_abs_value >= 1_000_000_000_000:
+        return 1.0 / 1_000_000.0
+    return 1.0

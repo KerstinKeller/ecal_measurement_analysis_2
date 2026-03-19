@@ -42,7 +42,7 @@ def main(
     try:
         raw_df = records_to_frame(adapter.iter_messages(str(measurement_path), stream_ids=stream_id, topics=topic))
     except NotImplementedError:
-        typer.echo("eCAL adapter is a stub. Load cached CSV-style data for preview mode.")
+        typer.echo("No readable HDF5 message table found via eCAL adapter. Falling back to cached CSV preview mode.")
         csv_path = measurement_path / "messages.csv"
         if csv_path.exists():
             raw_df = pd.read_csv(csv_path)
