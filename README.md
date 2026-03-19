@@ -42,9 +42,9 @@ measure-inspect /path/to/measurement \
 
 ### Current adapter status
 
-`measurement_inspector/io/ecal_reader.py` is the dedicated integration boundary for eCAL HDF APIs. The adapter contract is in place and the module is intentionally isolated so API-specific wiring can be completed without touching analysis or UI layers.
+`measurement_inspector/io/ecal_reader.py` is the dedicated integration boundary for eCAL HDF APIs. The adapter uses `ecal.measurement.hdf5.Meas` to enumerate channels and read entry metadata (send/receive timestamps, counters, and payload sizes) into the canonical message schema used by analysis and UI layers, preserving raw microsecond timestamps from eCAL.
 
-In preview mode, when adapter wiring is still pending, CLI can read `<measurement_path>/messages.csv`.
+If no readable HDF5 message table is found, CLI falls back to `<measurement_path>/messages.csv` for preview mode.
 
 ## Testing
 
